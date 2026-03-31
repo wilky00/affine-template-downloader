@@ -18,7 +18,7 @@ This tool reduces that to **copy link, paste, done**.
 
 ### 1. Download the HTML file
 
-Download [`index.html`](index.html) and open it in your browser (or [use it online via GitHub Pages](#github-pages)).
+Download [`index.html`](index.html) and open it in your browser (or [use it online via GitHub Pages]((https://wilky00.github.io/affine-template-downloader/))).
 
 ### 2. Copy the template link from AFFiNE
 
