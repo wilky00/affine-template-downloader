@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AFFiNE Template Downloader</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .container { max-width: 600px; width: 100%; padding: 2rem; }
+  h1 { font-size: 1.5rem; margin-bottom: 0.5rem; color: #cba6f7; }
+  p.subtitle { color: #a6adc8; margin-bottom: 1.5rem; font-size: 0.9rem; }
+  label { display: block; font-size: 0.85rem; color: #a6adc8; margin-bottom: 0.4rem; }
+  textarea { width: 100%; height: 100px; background: #313244; border: 1px solid #45475a; border-radius: 8px; color: #cdd6f4; padding: 0.75rem; font-size: 0.9rem; resize: vertical; font-family: monospace; }
+  textarea:focus { outline: none; border-color: #cba6f7; }
+  textarea::placeholder { color: #585b70; }
+  button { margin-top: 1rem; width: 100%; padding: 0.75rem; background: #cba6f7; color: #1e1e2e; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+  button:hover { background: #b4befe; }
+  button:disabled { background: #45475a; color: #585b70; cursor: not-allowed; }
+  .result { margin-top: 1.5rem; padding: 1rem; background: #313244; border-radius: 8px; display: none; }
+  .result.show { display: block; }
+  .result .name { color: #a6e3a1; font-weight: 600; }
+  .result .url { color: #89b4fa; word-break: break-all; font-size: 0.8rem; font-family: monospace; margin-top: 0.5rem; }
+  .error { color: #f38ba8; margin-top: 1rem; display: none; }
+  .error.show { display: block; }
+  .history { margin-top: 2rem; }
+  .history h2 { font-size: 1rem; color: #a6adc8; margin-bottom: 0.5rem; }
+  .history-item { padding: 0.5rem 0; border-bottom: 1px solid #313244; font-size: 0.85rem; }
+  .history-item a { color: #89b4fa; text-decoration: none; }
+  .history-item a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>AFFiNE Template Downloader</h1>
+  <p class="subtitle">Paste the "Use this template" link or any affine.pro template page URL</p>
+
+  <label for="url-input">Template URL</label>
+  <textarea id="url-input" placeholder="https://app.affine.pro/template/import?workspaceId=...&snapshotUrl=...&#10;or&#10;https://affine.pro/templates/pokemon-team-planner"></textarea>
+
+  <button id="download-btn" onclick="handleDownload()">Download Template ZIP</button>
+
+  <div class="error" id="error"></div>
+  <div class="result" id="result">
+    <div class="name" id="result-name"></div>
+    <div class="url" id="result-url"></div>
+  </div>
+
+  <div class="history" id="history-section" style="display:none">
+    <h2>Recent Downloads</h2>
+    <div id="history-list"></div>
+  </div>
+</div>
+
+<script>
+function parseTemplateUrl(raw) {
+  raw = raw.trim();
+
+  // If it's a template page URL like affine.pro/templates/slug, we can't extract a snapshot from it
+  // We need the "Use this template" link which has snapshotUrl param
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error('Invalid URL. Paste the link from the "Use this template" button.');
+  }
+
+  const params = url.searchParams;
+  const snapshotEncoded = params.get('snapshotUrl');
+  if (!snapshotEncoded) {
+    throw new Error('No snapshotUrl found in this URL. Make sure you copy the link from the "Use this template" button, not the page URL.');
+  }
+
+  const snapshotUrl = decodeURIComponent(snapshotEncoded);
+  const name = params.get('name') || 'template';
+  const cleanName = decodeURIComponent(name.replace(/\+/g, ' '));
+
+  return { snapshotUrl, name: cleanName };
+}
+
+function handleDownload() {
+  const input = document.getElementById('url-input').value;
+  const errorEl = document.getElementById('error');
+  const resultEl = document.getElementById('result');
+
+  errorEl.className = 'error';
+  resultEl.className = 'result';
+
+  try {
+    const { snapshotUrl, name } = parseTemplateUrl(input);
+
+    // Show result info
+    document.getElementById('result-name').textContent = name;
+    document.getElementById('result-url').textContent = snapshotUrl;
+    resultEl.className = 'result show';
+
+    // Trigger download
+    const a = document.createElement('a');
+    a.href = snapshotUrl;
+    a.download = name.replace(/\s+/g, '_') + '.zip';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    // Save to history
+    saveHistory(name, snapshotUrl);
+    renderHistory();
+
+    // Clear input
+    document.getElementById('url-input').value = '';
+  } catch (e) {
+    errorEl.textContent = e.message;
+    errorEl.className = 'error show';
+  }
+}
+
+function saveHistory(name, url) {
+  const history = JSON.parse(localStorage.getItem('affine-templates') || '[]');
+  history.unshift({ name, url, date: new Date().toISOString().slice(0, 10) });
+  if (history.length > 20) history.pop();
+  localStorage.setItem('affine-templates', JSON.stringify(history));
+}
+
+function renderHistory() {
+  const history = JSON.parse(localStorage.getItem('affine-templates') || '[]');
+  const section = document.getElementById('history-section');
+  const list = document.getElementById('history-list');
+
+  if (history.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  list.innerHTML = history.map(h =>
+    `<div class="history-item">${h.date} — <a href="${h.url}" download="${h.name.replace(/\s+/g, '_')}.zip">${h.name}</a></div>`
+  ).join('');
+}
+
+// Auto-paste from clipboard on focus
+document.getElementById('url-input').addEventListener('focus', async () => {
+  const input = document.getElementById('url-input');
+  if (input.value) return;
+  try {
+    const text = await navigator.clipboard.readText();
+    if (text.includes('affine') && text.includes('snapshotUrl')) {
+      input.value = text;
+    }
+  } catch { /* clipboard permission denied, ignore */ }
+});
+
+// Handle paste → auto-download
+document.getElementById('url-input').addEventListener('paste', (e) => {
+  setTimeout(() => handleDownload(), 100);
+});
+
+// Enter key
+document.getElementById('url-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleDownload(); }
+});
+
+renderHistory();
+</script>
+</body>
+</html>
