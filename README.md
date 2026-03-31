@@ -52,11 +52,7 @@ In your self-hosted AFFiNE app:
 
 You can also use this tool directly in your browser without downloading:
 
-```
-https://<your-username>.github.io/affine-template-downloader/
-```
-
-To enable GitHub Pages, go to your repo **Settings > Pages** and set the source to the `main` branch.
+**https://wilky00.github.io/affine-template-downloader/**
 
 ## License
 
