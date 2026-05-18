@@ -1,0 +1,20 @@
+# ABOUTME: Dependabot config — automated dependency update PRs for GitHub repos.
+version: 2
+updates:
+  - package-ecosystem: "npm"  # replaced by setup-project-ci.sh
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "security"
+    assignees:
+      - "Wilky00"
+    reviewers:
+      - "Wilky00"
+    commit-message:
+      prefix: "deps"
+      include: "scope"

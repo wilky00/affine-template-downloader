@@ -1,0 +1,85 @@
+# ABOUTME: GitHub Actions security scanning workflow — runs on every push and pull request.
+# Runs: GitLeaks (secrets), Semgrep (SAST), Trivy (filesystem/containers), CodeQL (deep SAST).
+name: Security Scan
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  schedule:
+    - cron: "0 3 * * 1"  # weekly Monday 3am for full CodeQL scan
+
+permissions:
+  contents: read
+  security-events: write  # required for CodeQL SARIF upload
+  actions: read
+
+jobs:
+  gitleaks:
+    name: GitLeaks — secret detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  semgrep:
+    name: Semgrep — SAST
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Semgrep
+        run: semgrep scan --config=auto --severity=ERROR --error --sarif --output /tmp/semgrep.sarif .
+      - name: Upload Semgrep SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: /tmp/semgrep.sarif
+          category: semgrep
+
+  trivy:
+    name: Trivy — vulnerability scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          format: sarif
+          output: /tmp/trivy-results.sarif
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: /tmp/trivy-results.sarif
+          category: trivy
+
+  codeql:
+    name: CodeQL — deep SAST
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ["javascript"]  # replaced by setup-project-ci.sh
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
